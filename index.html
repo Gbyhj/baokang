@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识层级 · 名词全景</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f0f1a; color: #e0e0e0; height: 100vh; overflow: hidden; }
+  
+  /* 布局 */
+  .app { display: flex; flex-direction: column; height: 100vh; }
+  
+  /* 顶栏 */
+  .header { 
+    padding: 12px 24px; 
+    background: linear-gradient(135deg, #1a1a2e, #16213e); 
+    border-bottom: 1px solid #2a2a4a;
+    display: flex; align-items: center; justify-content: space-between;
+    z-index: 10;
+  }
+  .header h1 { font-size: 18px; font-weight: 600; color: #7c7cf0; }
+  .header .stats { font-size: 12px; color: #888; }
+  
+  /* 主体区域 */
+  .main { display: flex; flex: 1; overflow: hidden; }
+  
+  /* 左侧层级面板 */
+  .left-panel {
+    width: 280px; min-width: 280px;
+    background: #151528; border-right: 1px solid #2a2a4a;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .panel-title { 
+    padding: 12px 16px; font-size: 13px; font-weight: 600; 
+    color: #888; text-transform: uppercase; letter-spacing: 1px;
+    border-bottom: 1px solid #2a2a4a;
+  }
+  .level-list { flex: 1; overflow-y: auto; padding: 8px; }
+  
+  .level-item {
+    padding: 8px 12px; border-radius: 8px; cursor: pointer;
+    transition: all 0.2s; margin-bottom: 2px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .level-item:hover { background: #1e1e3a; }
+  .level-item.active { background: #2a2a5a; border-left: 3px solid #7c7cf0; }
+  .level-item .badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 20px; border-radius: 4px;
+    font-size: 10px; font-weight: 700; flex-shrink: 0;
+  }
+  .badge-L0 { background: #ff6b6b; color: #fff; }
+  .badge-L1 { background: #ffa94d; color: #000; }
+  .badge-L2 { background: #ffd43b; color: #000; }
+  .badge-L3 { background: #69db7c; color: #000; }
+  .badge-L4 { background: #4dabf7; color: #fff; }
+  .badge-L5 { background: #9775fa; color: #fff; }
+  .badge-L6 { background: #e599f7; color: #000; }
+  .level-item .count { margin-left: auto; font-size: 11px; color: #666; }
+  
+  /* 右侧内容区 */
+  .right-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  
+  /* 时间线 */
+  .timeline-section {
+    padding: 0 16px; background: #12122a;
+    border-bottom: 1px solid #2a2a4a;
+  }
+  .timeline-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; font-size: 12px; color: #888;
+  }
+  .timeline-track {
+    position: relative; height: 40px; margin: 4px 0 12px 0;
+    cursor: pointer; user-select: none;
+  }
+  .timeline-bg {
+    position: absolute; top: 50%; left: 0; right: 0; height: 4px;
+    background: #2a2a4a; border-radius: 2px; transform: translateY(-50%);
+  }
+  .timeline-range {
+    position: absolute; top: 50%; height: 4px;
+    background: linear-gradient(90deg, #7c7cf0, #4dabf7);
+    border-radius: 2px; transform: translateY(-50%);
+    cursor: grab;
+  }
+  .timeline-range:active { cursor: grabbing; }
+  .timeline-handle {
+    position: absolute; top: 50%; width: 16px; height: 16px;
+    background: #7c7cf0; border: 2px solid #a8a8ff;
+    border-radius: 50%; transform: translate(-50%, -50%);
+    cursor: ew-resize; z-index: 2;
+  }
+  .timeline-handle:hover { transform: translate(-50%, -50%) scale(1.2); }
+  .timeline-handle.left { left: 0; }
+  .timeline-handle.right { right: 0; }
+  .timeline-labels {
+    position: relative; height: 20px; margin-bottom: 4px;
+  }
+  .timeline-labels span {
+    position: absolute; font-size: 10px; color: #666;
+    transform: translateX(-50%);
+  }
+  
+  /* 事件标记点 */
+  .event-dot {
+    position: absolute; top: 50%; width: 6px; height: 6px;
+    background: #f0c040; border-radius: 50%; transform: translate(-50%, -50%);
+    z-index: 1; cursor: pointer; transition: all 0.2s;
+  }
+  .event-dot:hover { width: 10px; height: 10px; background: #ffd700; }
+  .event-dot.active { background: #ff6b6b; box-shadow: 0 0 8px rgba(255,107,107,0.6); }
+  
+  /* 主内容区 - 卡片网格 */
+  .card-grid {
+    flex: 1; overflow-y: auto; padding: 16px;
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    align-content: start;
+  }
+  
+  .card {
+    background: #1a1a30; border: 1px solid #2a2a4a; border-radius: 12px;
+    padding: 16px; cursor: pointer; transition: all 0.2s;
+  }
+  .card:hover { border-color: #4a4a7a; transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+  .card.expanded { border-color: #7c7cf0; grid-column: span 1; }
+  
+  .card-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  }
+  .card-name { font-size: 16px; font-weight: 600; }
+  .card-level { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #2a2a4a; color: #888; }
+  .card-year { font-size: 11px; color: #888; margin-left: auto; }
+  
+  .card-desc { font-size: 12px; color: #999; margin-bottom: 8px; line-height: 1.4; }
+  
+  .card-dims { display: none; }
+  .card.expanded .card-dims { display: block; }
+  
+  .dim {
+    padding: 6px 0; border-bottom: 1px solid #252545; font-size: 13px; line-height: 1.5;
+  }
+  .dim:last-child { border-bottom: none; }
+  .dim-key { color: #7c7cf0; font-weight: 600; font-size: 12px; display: inline; margin-right: 6px; }
+  .dim-val { color: #ccc; display: inline; }
+  
+  /* 空状态 */
+  .empty-state {
+    grid-column: 1 / -1; text-align: center; padding: 60px 20px;
+    color: #555; font-size: 14px;
+  }
+  
+  /* 搜索框 */
+  .search-box {
+    padding: 8px 16px; border-bottom: 1px solid #2a2a4a;
+  }
+  .search-box input {
+    width: 100%; padding: 8px 12px; border-radius: 8px;
+    border: 1px solid #2a2a4a; background: #1a1a30;
+    color: #e0e0e0; font-size: 13px; outline: none;
+  }
+  .search-box input:focus { border-color: #7c7cf0; }
+  .search-box input::placeholder { color: #555; }
+  
+  /* 滚动条 */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #3a3a5a; border-radius: 3px; }
+  
+  /* 关系连线SVG */
+  .relations-overlay {
+    display: none;
+  }
+  
+  /* 标签过滤器 */
+  .tag-filters {
+    display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 12px;
+    border-bottom: 1px solid #2a2a4a;
+  }
+  .tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    background: #2a2a4a; color: #999; cursor: pointer; transition: all 0.2s;
+  }
+  .tag:hover { background: #3a3a6a; color: #ccc; }
+  .tag.active { background: #7c7cf0; color: #fff; }
+  
+  @media (max-width: 768px) {
+    .left-panel { width: 200px; min-width: 200px; }
+    .card-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- 顶栏 -->
+  <div class="header">
+    <div>
+      <h1>📚 名词知识全景</h1>
+      <div class="stats">L0 → L6 · 按包含关系分层</div>
+    </div>
+    <div class="stats" id="statusBar">加载中...</div>
+  </div>
+  
+  <div class="main">
+    <!-- 左侧层级面板 -->
+    <div class="left-panel">
+      <div class="panel-title">📂 层级 (包含关系)</div>
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="搜索名词..." oninput="filterCards()">
+      </div>
+      <div class="level-list" id="levelList"></div>
+    </div>
+    
+    <!-- 右侧内容区 -->
+    <div class="right-panel">
+      <!-- 时间线 -->
+      <div class="timeline-section">
+        <div class="timeline-header">
+          <span>⏱ 时间线（拖拽选择时间范围）</span>
+          <span id="timeRange">全部时间</span>
+        </div>
+        <div class="timeline-labels" id="timelineLabels"></div>
+        <div class="timeline-track" id="timelineTrack">
+          <div class="timeline-bg"></div>
+          <div class="timeline-range" id="timelineRange">
+            <div class="timeline-handle left" id="handleLeft"></div>
+            <div class="timeline-handle right" id="handleRight"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 标签过滤器 -->
+      <div class="tag-filters" id="tagFilters"></div>
+      
+      <!-- 卡片网格 -->
+      <div class="card-grid" id="cardGrid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== 加载数据 ==========
+const DATA = KNOWLEDGE_DATA;
+
+// ========== 工具函数 ==========
+function getYearVal(year) {
+  if (!year || year === '古代' || year.includes('亿')) return -10000;
+  const m = String(year).match(/(\d{4})/);
+  return m ? parseInt(m[1]) : -10000;
+}
+
+function getAllLeaves(node) {
+  const leaves = [];
+  if (!node.children || node.children.length === 0) {
+    leaves.push(node);
+  } else {
+    node.children.forEach(c => leaves.push(...getAllLeaves(c)));
+  }
+  return leaves;
+}
+
+function flattenTree(nodes, level = "") {
+  const result = [];
+  nodes.forEach(n => {
+    n._level = level || n.level;
+    result.push(n);
+    if (n.children) result.push(...flattenTree(n.children, n._level));
+  });
+  return result;
+}
+
+// ========== 主逻辑 ==========
+let allItems = [];
+let selectedLevels = new Set();
+let dataTree = null;
+
+window.onload = function() { init(KNOWLEDGE_DATA); };
+function init(data) {
+  dataTree = data.tree;
+  allItems = flattenTree(dataTree);
+  
+  // 收集层级
+  const levels = new Set();
+  allItems.forEach(item => {
+    if (item._level) levels.add(item._level);
+  });
+  
+  // 默认选中所有层级
+  levels.forEach(l => selectedLevels.add(l));
+  
+  renderLevels(levels);
+  renderTimeline();
+  renderTags();
+  filterCards();
+  setupTimelineDrag();
+  
+  document.getElementById('statusBar').textContent = 
+    `共 ${allItems.length} 个名词 · ${levels.size} 层`;
+}
+
+function renderLevels(levels) {
+  const list = document.getElementById('levelList');
+  const sorted = Array.from(levels).sort();
+  
+  // 显示层级树
+  list.innerHTML = sorted.map(l => {
+    const count = allItems.filter(i => i._level === l).length;
+    const active = selectedLevels.has(l) ? 'active' : '';
+    const levelName = getLevelName(l);
+    return `<div class="level-item ${active}" onclick="toggleLevel('${l}')">
+      <span class="badge badge-${l}">${l}</span>
+      <span style="font-size:13px">${levelName}</span>
+      <span class="count">${count}</span>
+    </div>`;
+  }).join('');
+}
+
+function getLevelName(l) {
+  const names = {
+    'L0': '宇宙/本体',
+    'L1': '组成部分',
+    'L2': '粒子与场所',
+    'L3': '粒子族与力',
+    'L4': '具体个体',
+    'L5': '细粒度属性',
+    'L6': '精确值'
+  };
+  return names[l] || l;
+}
+
+function toggleLevel(level) {
+  if (selectedLevels.has(level)) selectedLevels.delete(level);
+  else selectedLevels.add(level);
+  renderLevels(new Set(allItems.map(i => i._level)));
+  filterCards();
+}
+
+// ========== 时间线 ==========
+let timelineMin = 1800, timelineMax = 2030;
+let rangeStart = 1800, rangeEnd = 2030;
+
+function renderTimeline() {
+  const track = document.getElementById('timelineTrack');
+  const labels = document.getElementById('timelineLabels');
+  
+  // 计算实际时间范围
+  const years = allItems.map(i => getYearVal(i.first_seen)).filter(y => y >= 1000);
+  timelineMin = Math.min(...years, 1800);
+  timelineMax = Math.max(...years, 2030);
+  if (rangeStart < timelineMin) rangeStart = timelineMin;
+  if (rangeEnd > timelineMax) rangeEnd = timelineMax;
+  
+  // 标签
+  const step = Math.max(1, Math.round((timelineMax - timelineMin) / 10));
+  let labelsHTML = '';
+  for (let y = timelineMin; y <= timelineMax; y += step) {
+    const pct = ((y - timelineMin) / (timelineMax - timelineMin)) * 100;
+    labelsHTML += `<span style="left:${pct}%">${y}</span>`;
+  }
+  labels.innerHTML = labelsHTML;
+  
+  // 事件标记
+  document.querySelectorAll('.event-dot').forEach(d => d.remove());
+  allItems.forEach(item => {
+    const y = getYearVal(item.first_seen);
+    if (y >= 1000) {
+      const pct = ((y - timelineMin) / (timelineMax - timelineMin)) * 100;
+      const dot = document.createElement('div');
+      dot.className = 'event-dot';
+      dot.style.left = pct + '%';
+      dot.title = `${item.name} (${item.first_seen})`;
+      dot.onclick = (e) => { e.stopPropagation(); filterCards(); };
+      track.appendChild(dot);
+    }
+  });
+  
+  updateRangeSlider();
+}
+
+function updateRangeSlider() {
+  const total = timelineMax - timelineMin;
+  const left = ((rangeStart - timelineMin) / total) * 100;
+  const right = ((timelineMax - rangeEnd) / total) * 100;
+  
+  const range = document.getElementById('timelineRange');
+  range.style.left = left + '%';
+  range.style.right = right + '%';
+  
+  document.getElementById('timeRange').textContent = 
+    rangeStart >= 1000 ? `${rangeStart} — ${rangeEnd}` : '全部时间';
+  
+  filterCards();
+}
+
+let dragging = null;
+
+function setupTimelineDrag() {
+  const track = document.getElementById('timelineTrack');
+  const hL = document.getElementById('handleLeft');
+  const hR = document.getElementById('handleRight');
+  const range = document.getElementById('timelineRange');
+  
+  function startDrag(handle, isLeft) {
+    return (e) => {
+      e.preventDefault();
+      dragging = isLeft ? 'left' : 'right';
+      document.addEventListener('mousemove', onDrag);
+      document.addEventListener('mouseup', stopDrag);
+    };
+  }
+  
+  function onDrag(e) {
+    const rect = track.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    const year = timelineMin + pct * (timelineMax - timelineMin);
+    
+    if (dragging === 'left') {
+      rangeStart = Math.max(timelineMin, Math.min(year, rangeEnd - 1));
+    } else if (dragging === 'right') {
+      rangeEnd = Math.min(timelineMax, Math.max(year, rangeStart + 1));
+    }
+    updateRangeSlider();
+  }
+  
+  function stopDrag() {
+    dragging = null;
+    document.removeEventListener('mousemove', onDrag);
+    document.removeEventListener('mouseup', stopDrag);
+  }
+  
+  // 也可拖拽整个范围
+  range.addEventListener('mousedown', (e) => {
+    if (e.target === range) {
+      dragging = 'range';
+      const startYear = rangeStart;
+      const startX = e.clientX;
+      
+      function moveRange(e) {
+        const dx = e.clientX - startX;
+        const pct = dx / track.offsetWidth;
+        const dy = pct * (timelineMax - timelineMin);
+        const newStart = startYear + dy;
+        const newEnd = newStart + (rangeEnd - rangeStart);
+        if (newStart >= timelineMin && newEnd <= timelineMax) {
+          rangeStart = newStart;
+          rangeEnd = newEnd;
+          updateRangeSlider();
+        }
+      }
+      
+      function stopRangeDrag() {
+        document.removeEventListener('mousemove', moveRange);
+        document.removeEventListener('mouseup', stopRangeDrag);
+      }
+      
+      document.addEventListener('mousemove', moveRange);
+      document.addEventListener('mouseup', stopRangeDrag);
+    }
+  });
+  
+  hL.addEventListener('mousedown', startDrag(hL, true));
+  hR.addEventListener('mousedown', startDrag(hR, false));
+}
+
+// ========== 标签渲染 ==========
+function renderTags() {
+  const container = document.getElementById('tagFilters');
+  // 从当前选中的层级中提取标签
+  const tags = new Set();
+  allItems.forEach(item => {
+    if (item.dimensions && item.dimensions['命名']) {
+      const names = item.dimensions['命名'].split('、').map(s => s.trim());
+      names.forEach(n => { if (n.length < 6) tags.add(n); });
+    }
+  });
+  
+  const commonTags = Array.from(tags).filter(t => t.length > 0 && t.length < 8).slice(0, 20);
+  container.innerHTML = commonTags.map(t => 
+    `<span class="tag" onclick="searchTag('${t}')">${t}</span>`
+  ).join('');
+}
+
+let searchTagActive = '';
+
+function searchTag(tag) {
+  searchTagActive = tag;
+  document.getElementById('searchInput').value = tag;
+  filterCards();
+}
+
+// ========== 筛选 + 渲染卡片 ==========
+function filterCards() {
+  const query = document.getElementById('searchInput').value.toLowerCase().trim();
+  const grid = document.getElementById('cardGrid');
+  
+  let filtered = allItems.filter(item => {
+    // 层级筛选
+    if (!selectedLevels.has(item._level)) return false;
+    
+    // 时间筛选
+    const y = getYearVal(item.first_seen);
+    if (y >= 1000 && (y < rangeStart || y > rangeEnd)) return false;
+    
+    // 搜索筛选
+    if (query) {
+      const nameMatch = item.name.toLowerCase().includes(query);
+      const descMatch = item.description && item.description.toLowerCase().includes(query);
+      let dimMatch = false;
+      if (item.dimensions) {
+        for (const [k, v] of Object.entries(item.dimensions)) {
+          if (v && v.toLowerCase().includes(query)) { dimMatch = true; break; }
+        }
+      }
+      if (!nameMatch && !descMatch && !dimMatch) return false;
+    }
+    
+    return true;
+  });
+  
+  // 按first_seen时间排序
+  filtered.sort((a, b) => getYearVal(a.first_seen) - getYearVal(b.first_seen));
+  
+  if (filtered.length === 0) {
+    grid.innerHTML = '<div class="empty-state">🔍 没有匹配的名词<br><small>尝试调整时间范围或层级选择</small></div>';
+    return;
+  }
+  
+  grid.innerHTML = filtered.map(item => {
+    const level = item._level || 'L0';
+    const dims = item.dimensions || {};
+    const year = item.first_seen ? item.first_seen.toString() : '';
+    const desc = item.description || '';
+    
+    let dimsHTML = '';
+    const dimOrder = ['包含', '量化', '狀態', '功能', '時空', '關係', '命名'];
+    // 兼容简繁
+    const dimKeys = Object.keys(dims);
+    dimOrder.forEach(key => {
+      const val = dims[key];
+      // 也检查简体
+      const simpKey = key === '狀態' ? '状态' : key === '時空' ? '时空' : key === '關係' ? '关系' : key === '命名' ? '命名' : key;
+      const actualKey = dimKeys.find(k => k === key || k === simpKey);
+      if (actualKey && dims[actualKey]) {
+        dimsHTML += `<div class="dim"><span class="dim-key">${key}:</span><span class="dim-val">${dims[actualKey]}</span></div>`;
+      }
+    });
+    
+    return `<div class="card" onclick="this.classList.toggle('expanded')">
+      <div class="card-header">
+        <span class="badge badge-${level}">${level}</span>
+        <span class="card-name">${item.name}</span>
+        <span class="card-year">${year}</span>
+      </div>
+      <div class="card-desc">${desc}</div>
+      <div class="card-dims">${dimsHTML}</div>
+    </div>`;
+  }).join('');
+}
+
+// ========== 加载数据 ==========
+// 内联数据（由后端动态生成或静态嵌入）
+const KNOWLEDGE_DATA = [{"name": "宇宙", "level": "L0", "description": "萬物的整體存在，包含所有時空、能量、物質與生命", "first_seen": "~138億年前", "dimensions": {"包含": "時空 + 物質 + 能量 + 力 + 信息 + 生命 + 意識", "量化": "可觀測宇宙直徑 930億光年；年齡 138億年；星系 ~2萬億個", "狀態": "持續膨脹中（加速）", "功能": "所有存在物的總載體", "時空": "大爆炸起點；從奇點膨脹至今", "關係": "可能並存於多重宇宙中", "命名": "Universe、Cosmos、宇宙、天地"}, "leaf": false, "parent": null, "children_names": []}, {"name": "時空", "level": "L1", "description": "宇宙的基本框架，三維空間+一維時間的統一體", "first_seen": "~138億年前", "dimensions": {"包含": "空間 + 時間 + 時空曲率 + 維度", "量化": "3+1維（宏觀）；普朗克長度 1.6×10⁻³⁵m；普朗克時間 5.4×10⁻⁴⁴s", "狀態": "可被質量和能量彎曲；連續光滑", "功能": "為所有事件和物體提供存在場所", "時空": "大爆炸起點即存在；與宇宙同時誕生", "關係": "質量彎曲時空產生引力；廣義相對論核心概念", "命名": "Spacetime、時空、時空連續體"}, "leaf": false, "parent": null, "children_names": ["空間", "時間", "維度", "時空曲率", "蟲洞", "奇點", "事件視界", "光年", "秒", "米"]}, {"name": "物質", "level": "L1", "description": "佔有空間、有質量的實體，宇宙的構成基礎", "first_seen": "~138億年前", "dimensions": {"包含": "基本粒子 + 原子 + 分子 + 化合物 + 天體 + 生命體", "量化": "可觀測宇宙中普通物質佔 ~5%；暗物質 ~27%；暗能量 ~68%", "狀態": "可從能量轉換（E=mc²）；固/液/氣/等離子體四態", "功能": "構成所有實體物體的材料", "時空": "大爆炸後 10⁻¹²秒基本粒子形成；3分鐘後原子核形成", "關係": "與能量可相互轉換；被力所作用", "命名": "Matter、物質"}, "leaf": false, "parent": null, "children_names": ["天體", "基本粒子", "化學物質", "生物體"]}, {"name": "能量", "level": "L1", "description": "做功的能力；物質運動和變化的度量", "first_seen": "~138億年前", "dimensions": {"包含": "動能 + 勢能 + 熱能 + 化學能 + 核能 + 電磁能 + 暗能量", "量化": "單位 焦耳(J)；E=mc² 質能等價", "狀態": "守恆（不滅）；可從一種形式轉換為另一種", "功能": "驅動宇宙中所有變化和運動", "時空": "宇宙誕生時以純能量形式存在；後部分凝固為物質", "關係": "與物質通過 E=mc² 關聯；熱力學定律管轄", "命名": "Energy、能量、能"}, "leaf": false, "parent": null, "children_names": ["動能", "勢能", "熱能", "化學能", "核能", "電磁能", "暗能量"]}, {"name": "力", "level": "L1", "description": "物體之間的相互作用，改變物體狀態的原因", "first_seen": "~138億年前", "dimensions": {"包含": "基本力 + 經典力 + 場力", "量化": "牛頓(N)；F=ma；四大基本力強度標度", "狀態": "所有物體之間持續存在相互作用", "功能": "決定物體運動、結構和存在形式", "時空": "宇宙誕生之初就已存在；四種力最初可能統一", "關係": "與能量和物質相互依存；力的作用傳遞需要能量", "命名": "Force、力、相互作用"}, "leaf": false, "parent": null, "children_names": ["基本力", "經典力", "場"]}, {"name": "信息", "level": "L1", "description": "實體和模式的表示；知識和數據的抽象載體", "first_seen": "~138億年前（物理）", "dimensions": {"包含": "數據 + 知識 + 語言 + 基因信息 + 量子信息", "量化": "位元(bit)；字節(byte)；人腦存儲 ~2.5PB", "狀態": "可複製、可傳輸、不可消滅（物理上）", "功能": "描述現實；溝通交流；存儲知識", "時空": "物理信息自宇宙誕生即存在；生物信息~38億年前出現；人類知識~30萬年前", "關係": "與熵相關（熱力學信息）；是觀察者與物理世界的橋梁", "命名": "Information、信息、資訊"}, "leaf": false, "parent": null, "children_names": ["數據", "知識", "語言", "遺傳信息"]}, {"name": "生命", "level": "L1", "description": "能自我維持、自我複製、對環境響應的有序系統", "first_seen": "~38億年前", "dimensions": {"包含": "細胞 + 生物體 + 生態系統 + 基因 + 意識", "量化": "地球物種 ~870萬種；總生物量 ~5500億噸碳", "狀態": "自我複製、代謝、演化、適應", "功能": "宇宙中負熵（有序）的局部提升", "時空": "地球~38億年前出現最早生命；目前僅知地球有生命", "關係": "依賴於物質和能量；通過演化增加複雜度", "命名": "Life、生命、生物"}, "leaf": false, "parent": null, "children_names": ["細胞", "生物體", "生態系統", "基因", "意識"]}, {"name": "基本粒子", "level": "L2", "description": "不可再分的最基本物質單元", "first_seen": "1964-01（理論）", "dimensions": {"包含": "費米子 + 玻色子", "量化": "61種已知基本粒子（標準模型）", "狀態": "不可再分；部分可存在於自由態（電子），部分色禁閉（夸克）", "功能": "構成一切物質的基本磚塊", "時空": "大爆炸後 10⁻¹²秒形成", "關係": "通過基本力相互作用", "命名": "Elementary particle、基本粒子、基本粒子"}, "leaf": false, "parent": null, "children_names": ["費米子", "玻色子"]}, {"name": "天體", "level": "L2", "description": "宇宙中由引力聚集形成的大尺度物質結構", "first_seen": "~138億年前", "dimensions": {"包含": "星系 + 恆星 + 行星 + 衛星 + 小行星 + 彗星 + 黑洞 + 星雲", "量化": "可觀測宇宙 ~2萬億個星系；TRAPPIST-1 有7個類地行星", "狀態": "在引力作用下形成和演化", "功能": "物質在宇宙尺度的聚集形式", "時空": "大爆炸後 ~4億年第一批恆星形成", "關係": "受引力統治；恆星核合成產生重元素", "命名": "Celestial body、天體、天球體"}, "leaf": false, "parent": null, "children_names": ["星系", "恆星", "行星", "衛星", "小行星", "彗星", "黑洞", "星雲"]}, {"name": "化學物質", "level": "L2", "description": "由原子和分子構成的物質形式", "first_seen": "~138億年前", "dimensions": {"包含": "元素 + 化合物 + 混合物", "量化": "已知元素 118種；已發現化合物 ~2億種", "狀態": "原子通過化學鍵結合成分子", "功能": "構成固/液/氣體物質的基礎", "時空": "大爆炸後 ~30萬年原子形成；恆星核合成產生重元素", "關係": "化學鍵決定物質性質；催化劑改變反應速率", "命名": "Chemical substance、化學物質"}, "leaf": false, "parent": null, "children_names": ["元素", "化合物", "混合物"]}, {"name": "基本力", "level": "L2", "description": "宇宙中四種最基本的相互作用", "first_seen": "1687（引力理論化）", "dimensions": {"包含": "強核力 + 電磁力 + 弱核力 + 引力", "量化": "強:1 / 電磁:10⁻² / 弱:10⁻⁶ / 引力:10⁻³⁹", "狀態": "傳播子（玻色子）作為媒介；作用範圍各異", "功能": "決定自然界所有物質之間的相互作用", "時空": "宇宙誕生之初即存在；最初可能統一為單一力", "關係": "大統一理論(GUT)試圖統一前三者；量子引力統一全部", "命名": "Fundamental force、基本力、四種相互作用"}, "leaf": false, "parent": null, "children_names": ["強核力", "電磁力", "弱核力", "引力"]}, {"name": "費米子", "level": "L3", "description": "自旋半整數，遵守泡利不相容原理的粒子", "first_seen": "1925", "dimensions": {"包含": "夸克 + 輕子", "量化": "自旋 1/2；共 12種 + 12種反粒子", "狀態": "費米-狄拉克統計；不能佔據同一量子態", "功能": "構成所有可見物質", "時空": "1925年費米提出統計；1964年夸克理論", "關係": "與玻色子（力的傳遞者）構成所有粒子", "命名": "Fermion、費米子"}, "leaf": false, "parent": null, "children_names": ["夸克", "輕子"]}, {"name": "玻色子", "level": "L3", "description": "自旋整數，傳遞相互作用的粒子", "first_seen": "1905（光子）", "dimensions": {"包含": "光子 + 膠子 + W/Z玻色子 + 希格斯玻色子 + 引力子", "量化": "自旋整數（0,1,2）；玻色-愛因斯坦統計", "狀態": "可共享同一量子態；力的媒介", "功能": "傳遞基本相互作用；賦予質量（希格斯）", "時空": "1905年光子假說；2012年希格斯發現", "關係": "與費米子共同構成粒子物理標準模型", "命名": "Boson、玻色子"}, "leaf": false, "parent": null, "children_names": ["光子", "膠子", "W玻色子", "Z玻色子", "希格斯玻色子", "引力子"]}, {"name": "夸克", "level": "L4", "description": "參與強相互作用的費米子，具有色荷", "first_seen": "1964", "dimensions": {"包含": "上夸克 + 下夸克 + 粲夸克 + 奇夸克 + 頂夸克 + 底夸克", "量化": "6種味 × 3種色 = 18種；自旋 1/2", "狀態": "色禁閉（不能被單獨觀測）", "功能": "構成強子（質子、中子等）", "時空": "1964年蓋爾曼提出；1968年SLAC實驗證實", "關係": "與輕子同屬費米子；通過膠子相互束縛", "命名": "Quark、夸克"}, "leaf": false, "parent": null, "children_names": ["上夸克", "下夸克", "粲夸克", "奇夸克", "頂夸克", "底夸克"]}, {"name": "輕子", "level": "L4", "description": "不參與強相互作用的費米子", "first_seen": "1897（電子）", "dimensions": {"包含": "電子 + 缈子 + 陶子 + 電子中微子 + 缈子中微子 + 陶子中微子", "量化": "6種；電荷 0 或 -1", "狀態": "可自由存在（電子）；可極弱相互作用（中微子）", "功能": "構成原子結構；參與弱相互作用", "時空": "1897年電子發現；2000年陶子中微子發現", "關係": "與夸克共同構成物質", "命名": "Lepton、輕子"}, "leaf": false, "parent": null, "children_names": ["電子", "缈子", "陶子", "電子中微子", "缈子中微子", "陶子中微子"]}, {"name": "上夸克", "level": "L5", "description": "最輕的夸克，質子的主要成分", "first_seen": "1964", "dimensions": {"包含": "無（基本粒子）", "量化": "電荷 +2/3；質量 ~2.2 MeV；自旋 1/2；色荷 {紅,綠,藍}", "狀態": "色禁閉", "功能": "構成原子核的基本組分", "時空": "1964年理論預言；1968年實驗證實", "關係": "與下夸克共同組成質子(uud)和中子(udd)", "命名": "Up quark、u夸克、上夸克"}, "leaf": true, "parent": null, "children_names": []}, {"name": "電子", "level": "L5", "description": "最輕的帶電輕子，原子外層粒子", "first_seen": "1897", "dimensions": {"包含": "無（基本粒子）", "量化": "電荷 -1；質量 0.511 MeV；自旋 1/2", "狀態": "穩定；可自由存在或束縛於原子", "功能": "電流的載體；化學反應的基礎", "時空": "1897年J.J.湯姆孫發現", "關係": "與質子構成原子；泡利不相容約束電子排布", "命名": "Electron、e⁻、電子"}, "leaf": true, "parent": null, "children_names": []}, {"name": "質子", "level": "L5", "description": "氫原子核，原子核的基本組分", "first_seen": "1919", "dimensions": {"包含": "上夸克 2個 + 下夸克 1個 (uud)", "量化": "電荷 +1；質量 938.3 MeV；自旋 1/2", "狀態": "穩定（壽命 > 10³⁴年）", "功能": "決定元素的原子序數", "時空": "1919年盧瑟福命名", "關係": "與中子構成原子核；與電子構成原子", "命名": "Proton、p⁺、質子"}, "leaf": true, "parent": null, "children_names": []}]; // 这里留空，将由文件加载
+</script>
+</body>
+</html>
